@@ -1,8 +1,75 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'signup_screen.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  bool isLoading = false;
+
+  Future<void> _login() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+
+    // Debugging: Print input values
+    print("Email: $email");
+    print("Password: $password");
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage("Please fill in all fields.");
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      // Debugging: Print request body before sending
+      final requestBody = jsonEncode({
+        'email': email,
+        'password': password,
+      });
+      print("Request Body: $requestBody");
+
+      final response = await http.post(
+        Uri.parse('http://localhost:5000/api/auth/login'), // TODO: replace with your IP
+        headers: {'Content-Type': 'application/json'},
+        body: requestBody,
+      );
+
+      // Debugging: Print response status and body
+      print("Response Status Code: ${response.statusCode}");
+      print("Response Body: ${response.body}");
+
+      final result = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        _showMessage(result['message']);
+        // TODO: Handle successful login (e.g., save token, navigate to home screen)
+      } else {
+        _showMessage(result['message'] ?? 'Login failed.');
+      }
+    } catch (e) {
+      // Debugging: Print error
+      print("Error: $e");
+      _showMessage("Error connecting to server.");
+    }
+
+    setState(() => isLoading = false);
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,11 +98,13 @@ class LoginScreen extends StatelessWidget {
                       textAlign: TextAlign.center),
                   const SizedBox(height: 24),
                   TextField(
+                    controller: emailController,
                     decoration: const InputDecoration(labelText: 'Email'),
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 16),
                   TextField(
+                    controller: passwordController,
                     decoration: const InputDecoration(labelText: 'Password'),
                     obscureText: true,
                   ),
@@ -43,10 +112,10 @@ class LoginScreen extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // TODO: Implement login logic
-                      },
-                      child: const Text("Log In"),
+                      onPressed: isLoading ? null : _login,
+                      child: isLoading
+                          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text("Log In"),
                     ),
                   ),
                   const SizedBox(height: 12),
