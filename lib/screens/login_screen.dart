@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'signup_screen.dart';
 import 'reseller_screen.dart'; // Import reseller dashboard
 import 'tailor_screen.dart'; // Import tailor dashboard
-// import 'designer_dashboard.dart'; // Import designer dashboard
+import 'designer_screen.dart'; // Import designer dashboard
 // import 'customer_dashboard.dart'; // Import customer dashboard
 
 class LoginScreen extends StatefulWidget {
@@ -49,17 +49,23 @@ class _LoginScreenState extends State<LoginScreen> {
         if (role == 'reseller') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => ResellerDashboard(token : result['token'])), // Pass the token to the dashboard
+            MaterialPageRoute(builder: (_) => ResellerDashboard(token: result['token'])), // Pass the token to the dashboard
           );
         } else if (role == 'tailor') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => TailorScreen(token : result['token'])), // Pass the token to the dashboard
+            MaterialPageRoute(builder: (_) => TailorScreen(token: result['token'])), // Pass the token to the dashboard
           );
-        } else if (role == 'customer') {
+        } else if (role == 'designer') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => ResellerDashboard(token : result['token'])), //temp
+            MaterialPageRoute(builder: (_) => DesignerScreen(token: result['token'])), // Pass the token to the dashboard
+          );
+        } else if (role == 'customer') {
+          // Temporarily using ResellerDashboard until customer dashboard is implemented
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => ResellerDashboard(token: result['token'])),
           );
         } else {
           _showMessage("Unknown role. Please contact support.");
@@ -135,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         MaterialPageRoute(builder: (_) => const SignupScreen()),
                       );
                     },
-                    child: const Text("Don’t have an account? Sign Up"),
+                    child: const Text("Don't have an account? Sign Up"),
                   ),
                 ],
               ),
