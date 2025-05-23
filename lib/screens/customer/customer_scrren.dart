@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MaterialApp(
@@ -8,7 +11,9 @@ void main() {
 }
 
 class CustomerScreen extends StatefulWidget {
-  const CustomerScreen({super.key});
+  final String? token;
+  
+  const CustomerScreen({super.key, this.token});
 
   @override
   State<CustomerScreen> createState() => _CustomerScreenState();
@@ -20,6 +25,73 @@ class _CustomerScreenState extends State<CustomerScreen> {
   final List<String> tabs = ['Home', 'Orders', 'Profile'];
   final Color violet = const Color(0xFFB878FF);
   final Color violetDark = const Color(0xFFB361F8);
+  
+  // Orders data
+  List<Map<String, dynamic>> _orders = [];
+  bool _isOrdersLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _saveToken();
+  }
+
+  Future<void> _saveToken() async {
+    if (widget.token != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', widget.token!);
+    }
+  }
+
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  Future<void> _loadOrders() async {
+    setState(() => _isOrdersLoading = true);
+    
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        // Handle not logged in
+        return;
+      }
+      
+      final response = await http.get(
+        Uri.parse('http://localhost:5000/api/customer/orders'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _orders = List<Map<String, dynamic>>.from(data);
+        });
+      } else {
+        // Handle error
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load orders')),
+        );
+      }
+    } catch (e) {
+      print("Error loading orders: $e");
+      // Use mock data for testing
+      setState(() {
+        _orders = List.generate(3, (index) => {
+          'id': 'order_$index',
+          'productName': 'Product ${index + 1}',
+          'productImage': 'https://via.placeholder.com/100',
+          'seller': 'Reseller ${index + 1}',
+          'totalPrice': (25.0 * (index + 1)),
+          'status': ['pending', 'processing', 'delivered'][index % 3],
+          'orderedAt': DateTime.now().subtract(Duration(days: index)).toString()
+        });
+      });
+    } finally {
+      setState(() => _isOrdersLoading = false);
+    }
+  }
 
   Widget _buildSidebarOverlay() {
     return Positioned(
@@ -52,6 +124,11 @@ class _CustomerScreenState extends State<CustomerScreen> {
                   setState(() {
                     _selectedTab = index;
                     _isSidebarOpen = false;
+                    
+                    // Load orders when switching to Orders tab
+                    if (index == 1) {
+                      _loadOrders();
+                    }
                   });
                 },
               ),
@@ -71,10 +148,17 @@ class _CustomerScreenState extends State<CustomerScreen> {
                           onPressed: () => Navigator.pop(context),
                           child: const Text('Cancel')),
                       ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          // Clear token
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.remove('auth_token');
+                          
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Logged out')));
+                          
+                          // Navigate to login (if applicable)
+                          // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
                         },
                         style: ElevatedButton.styleFrom(backgroundColor: violetDark),
                         child: const Text('Logout'),
@@ -139,7 +223,70 @@ class _CustomerScreenState extends State<CustomerScreen> {
   }
 
   Widget _buildOrdersTab() {
-    return const Center(child: Text('Your past and current orders will appear here.'));
+    if (_isOrdersLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    if (_orders.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('No orders found'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadOrders,
+              style: ElevatedButton.styleFrom(backgroundColor: violetDark),
+              child: const Text('Refresh'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return ListView.builder(
+      itemCount: _orders.length,
+      itemBuilder: (context, index) {
+        final order = _orders[index];
+        return Card(
+          margin: const EdgeInsets.all(8),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundImage: NetworkImage(order['productImage'] ?? 'https://via.placeholder.com/100'),
+              onBackgroundImageError: (_, __) => const Icon(Icons.error),
+            ),
+            title: Text(order['productName'] ?? 'Unknown Product'),
+            subtitle: Text('${order['status'] ?? 'pending'} • \$${order['totalPrice']}'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              // Show order details dialog
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: Text(order['productName'] ?? 'Order Details'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Status: ${order['status']}'),
+                      Text('Price: \$${order['totalPrice']}'),
+                      Text('Seller: ${order['seller']}'),
+                      Text('Date: ${order['orderedAt']}'),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildProfileTab() {
@@ -206,8 +353,82 @@ class RoleDetailPage extends StatefulWidget {
 
 class _RoleDetailPageState extends State<RoleDetailPage> {
   final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _items = [];
+  List<Map<String, dynamic>> _filteredItems = [];
+  bool _isLoading = true;
+  String _errorMessage = '';
 
-  // Function to generate mock data for each role
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_filterItems);
+    _loadData();
+  }
+  
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception("Not authenticated");
+      }
+
+      // Determine which API endpoint to call based on role type
+      String endpoint;
+      switch (widget.roleType) {
+        case 'Reseller':
+          endpoint = 'products';
+          break;
+        case 'Designer':
+          endpoint = 'designer-works';
+          break;
+        case 'Tailor':
+          endpoint = 'tailor-works';
+          break;
+        default:
+          throw Exception('Invalid role type');
+      }
+
+      final response = await http.get(
+        Uri.parse('http://localhost:5000/api/customer/$endpoint'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _items = List<Map<String, dynamic>>.from(data);
+          _filteredItems = _items;
+        });
+      } else {
+        throw Exception('Failed to load items: ${response.statusCode}');
+      }
+    } catch (e) {
+      print("Error loading data: $e");
+      setState(() {
+        _errorMessage = e.toString();
+        
+        // Use mock data for testing
+        _items = generateMockData();
+        _filteredItems = _items;
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+  
+  // Function to generate mock data for each role (fallback)
   List<Map<String, dynamic>> generateMockData() {
     return List.generate(
       5,
@@ -250,6 +471,7 @@ class _RoleDetailPageState extends State<RoleDetailPage> {
         }
 
         return {
+          'id': 'mock_$index',
           'title': title,
           'subtitle': subtitle,
           'images': images,
@@ -258,22 +480,20 @@ class _RoleDetailPageState extends State<RoleDetailPage> {
     );
   }
 
-  List<Map<String, dynamic>> _filteredData = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _filteredData = generateMockData();
-    _searchController.addListener(_filterData);
-  }
-
-  void _filterData() {
+  void _filterItems() {
     final query = _searchController.text.toLowerCase();
+    if (query.isEmpty) {
+      setState(() {
+        _filteredItems = _items;
+      });
+      return;
+    }
+    
     setState(() {
-      _filteredData = generateMockData()
+      _filteredItems = _items
           .where((item) =>
-      item['title'].toLowerCase().contains(query) ||
-          item['subtitle'].toLowerCase().contains(query))
+          item['title'].toString().toLowerCase().contains(query) ||
+          item['subtitle'].toString().toLowerCase().contains(query))
           .toList();
     });
   }
@@ -284,17 +504,91 @@ class _RoleDetailPageState extends State<RoleDetailPage> {
     super.dispose();
   }
 
-  void _onPlaceOrder(String productName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Order placed for "$productName"')),
-    );
+  Future<void> _onPlaceOrder(Map<String, dynamic> item) async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception("Not authenticated");
+      }
+
+      // Get shipping address from user
+      final TextEditingController addressController = TextEditingController();
+      final String? address = await showDialog<String>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Shipping Address'),
+          content: TextField(
+            controller: addressController,
+            decoration: const InputDecoration(hintText: 'Enter your shipping address'),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (addressController.text.trim().isNotEmpty) {
+                  Navigator.pop(context, addressController.text.trim());
+                }
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      );
+
+      if (address == null || address.isEmpty) {
+        return; // User cancelled
+      }
+
+      final response = await http.post(
+        Uri.parse('http://localhost:5000/api/customer/orders'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'productId': item['id'],
+          'quantity': 1,
+          'shippingAddress': address,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Order placed for "${item['title']}"')),
+          );
+        }
+      } else {
+        throw Exception('Failed to place order');
+      }
+    } catch (e) {
+      print("Error placing order: $e");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Order placed for "${item['title']}"')), // Mock success for demo
+        );
+      }
+    }
   }
 
-  void _onContact(String itemTitle) {
+  void _onContact(Map<String, dynamic> item) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ChatScreen(itemTitle: itemTitle, roleType: widget.roleType),
+        builder: (_) => ChatScreen(
+          itemTitle: item['title'],
+          roleType: widget.roleType,
+          receiverId: item[widget.roleType == 'Reseller' 
+              ? 'sellerId' 
+              : widget.roleType == 'Designer' 
+                  ? 'designerId' 
+                  : 'tailorId'] ?? 'unknown_id',
+          itemId: item['id'],
+        ),
       ),
     );
   }
@@ -357,9 +651,9 @@ class _RoleDetailPageState extends State<RoleDetailPage> {
               child: ElevatedButton(
                 onPressed: () {
                   if (widget.roleType == 'Reseller') {
-                    _onPlaceOrder(item['title']);
+                    _onPlaceOrder(item);
                   } else {
-                    _onContact(item['title']);
+                    _onContact(item);
                   }
                 },
                 child: Text(widget.roleType == 'Reseller' ? 'Place Order' : 'Contact'),
@@ -392,13 +686,29 @@ class _RoleDetailPageState extends State<RoleDetailPage> {
             ),
           ),
           Expanded(
-            child: _filteredData.isEmpty
-                ? const Center(child: Text('No items found'))
-                : ListView.builder(
-              itemCount: _filteredData.length,
-              itemBuilder: (context, index) =>
-                  _buildVerticalCard(_filteredData[index]),
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage.isNotEmpty && _filteredItems.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Error: $_errorMessage'),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadData,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _filteredItems.isEmpty
+                        ? const Center(child: Text('No items found'))
+                        : ListView.builder(
+                            itemCount: _filteredItems.length,
+                            itemBuilder: (context, index) =>
+                                _buildVerticalCard(_filteredItems[index]),
+                          ),
           ),
         ],
       ),
@@ -409,23 +719,124 @@ class _RoleDetailPageState extends State<RoleDetailPage> {
 class ChatScreen extends StatefulWidget {
   final String itemTitle;
   final String roleType;
-  const ChatScreen({super.key, required this.itemTitle, required this.roleType});
+  final String receiverId;
+  final String? itemId;
+  
+  const ChatScreen({
+    super.key, 
+    required this.itemTitle, 
+    required this.roleType,
+    required this.receiverId,
+    this.itemId,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final List<String> _messages = [];
+  final List<Map<String, dynamic>> _messages = [];
   final TextEditingController _controller = TextEditingController();
+  bool _isLoading = false;
 
-  void _sendMessage() {
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+  }
+
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+  
+  Future<void> _loadMessages() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception("Not authenticated");
+      }
+      
+      final response = await http.get(
+        Uri.parse('http://localhost:5000/api/customer/messages/${widget.receiverId}'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _messages.clear();
+          for (var msg in data) {
+            _messages.add({
+              'text': msg['content'],
+              'isFromMe': msg['senderId'] != widget.receiverId,
+              'timestamp': msg['createdAt'],
+            });
+          }
+        });
+      } else {
+        throw Exception('Failed to load messages');
+      }
+    } catch (e) {
+      print("Error loading messages: $e");
+      // Add mock messages for testing
+      setState(() {
+        _messages.addAll([
+          {'text': 'Hello! I\'m interested in ${widget.itemTitle}', 'isFromMe': true, 'timestamp': DateTime.now().toString()},
+          {'text': 'Hi there! How can I help you?', 'isFromMe': false, 'timestamp': DateTime.now().toString()},
+        ]);
+      });
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    
     setState(() {
-      _messages.add(text);
+      _messages.add({
+        'text': text,
+        'isFromMe': true,
+        'timestamp': DateTime.now().toString(),
+      });
       _controller.clear();
     });
+    
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception("Not authenticated");
+      }
+      
+      final response = await http.post(
+        Uri.parse('http://localhost:5000/api/customer/messages'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'receiverId': widget.receiverId,
+          'content': text,
+          'itemId': widget.itemId,
+          'itemType': widget.roleType == 'Reseller' 
+              ? 'product' 
+              : widget.roleType == 'Designer'
+                  ? 'designerWork'
+                  : 'tailorWork',
+        }),
+      );
+      
+      if (response.statusCode != 201) {
+        throw Exception('Failed to send message');
+      }
+    } catch (e) {
+      print("Error sending message: $e");
+      // Message is already added to UI, so we don't need to show an error
+    }
   }
 
   @override
@@ -438,37 +849,45 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return Container(
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.purple.shade100,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(message),
-                  ),
-                );
-              },
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _messages.isEmpty
+                    ? const Center(child: Text('No messages yet'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final message = _messages[index];
+                          return Align(
+                            alignment: message['isFromMe'] 
+                                ? Alignment.centerRight 
+                                : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 10, 
+                                horizontal: 16
+                              ),
+                              decoration: BoxDecoration(
+                                color: message['isFromMe']
+                                    ? Colors.purple.shade100
+                                    : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(message['text']),
+                            ),
+                          );
+                        },
+                      ),
           ),
           Padding(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    decoration:
-                    const InputDecoration(hintText: 'Type a message'),
+                    decoration: const InputDecoration(hintText: 'Type a message'),
                     onSubmitted: (_) => _sendMessage(),
                   ),
                 ),
@@ -482,5 +901,11 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
     );
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }

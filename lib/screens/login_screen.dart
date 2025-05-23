@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'signup_screen.dart';
-import 'reseller_screen.dart'; // Import reseller dashboard
-import 'tailor_screen.dart'; // Import tailor dashboard
-import 'designer_screen.dart'; // Import designer dashboard
-// import 'customer_dashboard.dart'; // Import customer dashboard
+import 'reseller_screen.dart'; 
+import 'tailor_screen.dart'; 
+import 'designer_screen.dart'; 
+import 'customer/customer_scrren.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -65,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // Temporarily using ResellerDashboard until customer dashboard is implemented
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => ResellerDashboard(token: result['token'])),
+            MaterialPageRoute(builder: (_) => CustomerScreen(token: result['token'])),
           );
         } else {
           _showMessage("Unknown role. Please contact support.");
