@@ -39,6 +39,7 @@ dependencies:
   uuid: ^4.0.0
   font_awesome_flutter: ^10.8.0
   http: ^0.13.6
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:

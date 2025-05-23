@@ -54,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
         } else if (role == 'tailor') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => TailorScreen()), 
+            MaterialPageRoute(builder: (_) => TailorScreen(token : result['token'])), // Pass the token to the dashboard
           );
         } else if (role == 'customer') {
           Navigator.pushReplacement(
