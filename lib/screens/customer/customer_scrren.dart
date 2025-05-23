@@ -223,6 +223,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
   }
 
   Widget _buildOrdersTab() {
+<<<<<<< HEAD
     if (_isOrdersLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -283,6 +284,36 @@ class _CustomerScreenState extends State<CustomerScreen> {
                 ),
               );
             },
+=======
+    final List<Map<String, String>> sampleOrders = [
+      {'product': 'Product 1', 'seller': 'Reseller', 'status': 'Delivered'},
+      {'product': 'Tailor Style 2', 'seller': 'Tailor', 'status': 'In Progress'},
+      {'product': 'Designer Work 3', 'seller': 'Designer', 'status': 'Delivered'},
+      {'product': 'Product 4', 'seller': 'Reseller', 'status': 'Pending'},
+    ];
+
+    return ListView.builder(
+      itemCount: sampleOrders.length,
+      padding: const EdgeInsets.all(12),
+      itemBuilder: (context, index) {
+        final order = sampleOrders[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          child: ListTile(
+            title: Text(order['product']!),
+            subtitle: Text('Seller: ${order['seller']}'),
+            trailing: Text(
+              order['status']!,
+              style: TextStyle(
+                color: order['status'] == 'Delivered'
+                    ? Colors.green
+                    : order['status'] == 'Pending'
+                    ? Colors.orange
+                    : Colors.blue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+>>>>>>> 55dcc169c3364eb9b7b2e4e8a6809c269460e71e
           ),
         );
       },
@@ -290,8 +321,54 @@ class _CustomerScreenState extends State<CustomerScreen> {
   }
 
   Widget _buildProfileTab() {
-    return const Center(child: Text('User profile settings and information.'));
+    final Map<String, TextEditingController> sizeControllers = {
+      'Chest': TextEditingController(),
+      'Waist': TextEditingController(),
+      'Hips': TextEditingController(),
+      'Shoulder': TextEditingController(),
+      'Inseam': TextEditingController(),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Body Measurements',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          ...sizeControllers.entries.map(
+                (entry) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: TextField(
+                controller: entry.value,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: entry.key,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Center(
+            child: ElevatedButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Measurements saved')),
+                );
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: violet),
+              child: const Text('Save'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
+
 
   Widget _getSelectedTabContent() {
     switch (_selectedTab) {
