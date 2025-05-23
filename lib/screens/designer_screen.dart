@@ -4,24 +4,24 @@ import 'package:uuid/uuid.dart';
 void main() {
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: TailorScreen(),
+    home: DesignerScreen(),
   ));
 }
 
-class TailorScreen extends StatefulWidget {
-  const TailorScreen({super.key});
+class DesignerScreen extends StatefulWidget {
+  const DesignerScreen({super.key});
 
   @override
-  State<TailorScreen> createState() => _TailorScreenState();
+  State<DesignerScreen> createState() => _DesignerScreenState();
 }
 
-class TailorWork {
+class DesignerWork {
   final String id;
   String title;
   String description;
   List<String> imageUrls;
 
-  TailorWork({
+  DesignerWork({
     required this.id,
     required this.title,
     required this.description,
@@ -29,16 +29,16 @@ class TailorWork {
   });
 }
 
-class TailorOrder {
-  final String customer;
+class DesignerOrder {
+  final String client;
   final String address;
-  final Map<String, String> measurements;
+  final String event;
   final String status;
 
-  TailorOrder({
-    required this.customer,
+  DesignerOrder({
+    required this.client,
     required this.address,
-    required this.measurements,
+    required this.event,
     required this.status,
   });
 }
@@ -50,57 +50,58 @@ class Message {
   Message({required this.sender, required this.text});
 }
 
-class _TailorScreenState extends State<TailorScreen> {
+class _DesignerScreenState extends State<DesignerScreen> {
   int _selectedTab = 0;
+  String _specialization = 'Marriages';
 
-  final List<TailorWork> works = [
-    TailorWork(
+  final List<DesignerWork> works = [
+    DesignerWork(
       id: const Uuid().v4(),
-      title: 'Custom Sherwani',
-      description: 'A royal sherwani designed for weddings.',
+      title: 'Wedding Couture',
+      description: 'Elegant bridal designs with intricate embroidery.',
       imageUrls: ['https://via.placeholder.com/150', 'https://via.placeholder.com/140'],
     ),
-    TailorWork(
+    DesignerWork(
       id: const Uuid().v4(),
-      title: 'Designer Kurta',
-      description: 'Elegant kurta for festive occasions.',
-      imageUrls: ['https://via.placeholder.com/130', 'https://via.placeholder.com/120'],
+      title: 'Traditional Festival Wear',
+      description: 'Bright ethnic outfits for cultural festivals.',
+      imageUrls: ['https://via.placeholder.com/160'],
     ),
-    TailorWork(
+    DesignerWork(
       id: const Uuid().v4(),
-      title: 'Casual Shirt',
-      description: 'Comfortable casual shirt for daily wear.',
-      imageUrls: ['https://via.placeholder.com/110', 'https://via.placeholder.com/100'],
+      title: 'Modern Western Gowns',
+      description: 'Sleek and stylish gowns for receptions.',
+      imageUrls: ['https://via.placeholder.com/170'],
     ),
   ];
 
-  final List<TailorOrder> orders = [
-    TailorOrder(
-      customer: 'John',
-      address: '123 Street, City',
-      measurements: {'Chest': '38 in', 'Waist': '32 in', 'Length': '40 in'},
+  final List<DesignerOrder> orders = [
+    DesignerOrder(
+      client: 'Rhea',
+      address: '101 Park Lane, City',
+      event: 'Marriage',
       status: 'In Progress',
     ),
-    TailorOrder(
-      customer: 'Ayesha',
-      address: '456 Avenue, Town',
-      measurements: {'Chest': '36 in', 'Waist': '30 in', 'Length': '42 in'},
+    DesignerOrder(
+      client: 'Aarav',
+      address: '99 Residency Blvd, Town',
+      event: 'Birthday',
       status: 'Completed',
     ),
   ];
 
   final Map<String, List<Message>> chatMap = {
-    'John': [
-      Message(sender: 'Customer', text: 'Hello, I need a custom kurta.'),
-      Message(sender: 'Tailor', text: 'Sure, please provide your measurements.'),
+    'Rhea': [
+      Message(sender: 'Client', text: 'Can you design a bridal lehenga?'),
+      Message(sender: 'Designer', text: 'Absolutely! Let’s discuss the style.'),
     ],
-    'Ayesha': [
-      Message(sender: 'Customer', text: 'Can you make a designer lehenga?'),
-      Message(sender: 'Tailor', text: 'Yes, please share your preferences.'),
+    'Aarav': [
+      Message(sender: 'Client', text: 'I need a jacket for my birthday.'),
+      Message(sender: 'Designer', text: 'Sure! Color preferences?'),
     ],
   };
 
-  void _showAddWorkDialog({TailorWork? workToEdit}) {
+  void _showAddWorkDialog({DesignerWork? workToEdit}) {
     final titleController = TextEditingController(text: workToEdit?.title ?? '');
     final descriptionController = TextEditingController(text: workToEdit?.description ?? '');
     final imageUrls = List<TextEditingController>.from(
@@ -118,7 +119,6 @@ class _TailorScreenState extends State<TailorScreen> {
               height: 300,
               child: SingleChildScrollView(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     TextField(
                       controller: titleController,
@@ -129,10 +129,7 @@ class _TailorScreenState extends State<TailorScreen> {
                       decoration: const InputDecoration(labelText: 'Description'),
                     ),
                     const SizedBox(height: 12),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Image URLs:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
+                    const Text('Image URLs', style: TextStyle(fontWeight: FontWeight.bold)),
                     Column(
                       children: imageUrls
                           .asMap()
@@ -148,9 +145,7 @@ class _TailorScreenState extends State<TailorScreen> {
                           IconButton(
                             icon: const Icon(Icons.remove_circle, color: Colors.red),
                             onPressed: () {
-                              setStateDialog(() {
-                                imageUrls.removeAt(entry.key);
-                              });
+                              setStateDialog(() => imageUrls.removeAt(entry.key));
                             },
                           ),
                         ],
@@ -160,30 +155,17 @@ class _TailorScreenState extends State<TailorScreen> {
                     TextButton.icon(
                       icon: const Icon(Icons.add),
                       label: const Text('Add Image URL'),
-                      onPressed: () {
-                        setStateDialog(() {
-                          imageUrls.add(TextEditingController());
-                        });
-                      },
+                      onPressed: () => setStateDialog(() => imageUrls.add(TextEditingController())),
                     ),
                   ],
                 ),
               ),
             ),
             actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
               ElevatedButton(
                 onPressed: () {
-                  if (titleController.text.trim().isEmpty || descriptionController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Title and Description cannot be empty')),
-                    );
-                    return;
-                  }
-
-                  final newWork = TailorWork(
+                  final newWork = DesignerWork(
                     id: workToEdit?.id ?? const Uuid().v4(),
                     title: titleController.text.trim(),
                     description: descriptionController.text.trim(),
@@ -198,8 +180,7 @@ class _TailorScreenState extends State<TailorScreen> {
                       if (idx != -1) works[idx] = newWork;
                     }
                   });
-
-                  Navigator.of(context).pop();
+                  Navigator.pop(context);
                 },
                 child: const Text('Save'),
               )
@@ -226,40 +207,21 @@ class _TailorScreenState extends State<TailorScreen> {
                 const SizedBox(height: 5),
                 Text(work.description),
                 const SizedBox(height: 10),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    'Image Preview',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
                 SizedBox(
-                  height: 160,
+                  height: 140,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: work.imageUrls.map((url) {
                       return Padding(
                         padding: const EdgeInsets.only(right: 8.0),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              url,
-                              width: 150,
-                              height: 150,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  width: 150,
-                                  height: 150,
-                                  color: Colors.grey[300],
-                                  child: const Icon(Icons.broken_image, size: 40),
-                                );
-                              },
-                            ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            url,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 140),
                           ),
                         ),
                       );
@@ -270,17 +232,11 @@ class _TailorScreenState extends State<TailorScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit),
-                      onPressed: () {
-                        _showAddWorkDialog(workToEdit: work);
-                      },
+                      onPressed: () => _showAddWorkDialog(workToEdit: work),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete),
-                      onPressed: () {
-                        setState(() {
-                          works.removeAt(index);
-                        });
-                      },
+                      onPressed: () => setState(() => works.removeAt(index)),
                     ),
                   ],
                 ),
@@ -298,30 +254,27 @@ class _TailorScreenState extends State<TailorScreen> {
       itemBuilder: (context, index) {
         final order = orders[index];
         return ExpansionTile(
-          title: Text('${order.customer} - ${order.status}'),
-          subtitle: Text(order.address),
-          children: order.measurements.entries
-              .map((e) => ListTile(title: Text('${e.key}: ${e.value}')))
-              .toList(),
+          title: Text('${order.client} - ${order.status}'),
+          subtitle: Text('${order.event} • ${order.address}'),
         );
       },
     );
   }
 
-  Widget _buildChatListTab() {
+  Widget _buildChatTab() {
     return ListView(
-      children: chatMap.keys.map((customer) {
+      children: chatMap.keys.map((client) {
         return ListTile(
-          title: Text(customer),
+          title: Text(client),
           trailing: const Icon(Icons.chat),
           onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) {
               return ChatPage(
-                customer: customer,
-                messages: chatMap[customer]!,
+                customer: client,
+                messages: chatMap[client]!,
                 onSend: (msg) {
                   setState(() {
-                    chatMap[customer]!.add(msg);
+                    chatMap[client]!.add(msg);
                   });
                 },
               );
@@ -336,8 +289,35 @@ class _TailorScreenState extends State<TailorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tailor Dashboard'),
+        title: const Text('Designer Dashboard'),
         actions: [
+          DropdownButtonHideUnderline(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black, width: 1), // black border
+                borderRadius: BorderRadius.circular(4),
+                color: Colors.white, // white background
+              ),
+              child: DropdownButton<String>(
+                value: _specialization,
+                icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
+                dropdownColor: Colors.white,
+                style: const TextStyle(color: Colors.black), // black text style
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _specialization = newValue!;
+                  });
+                },
+                items: ['Marriages', 'Birthdays', 'Traditional Wear', 'Western Wear']
+                    .map<DropdownMenuItem<String>>((String value) => DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value, style: const TextStyle(color: Colors.black)),
+                ))
+                    .toList(),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
@@ -347,13 +327,11 @@ class _TailorScreenState extends State<TailorScreen> {
                   title: const Text('Confirm Logout'),
                   content: const Text('Are you sure you want to logout?'),
                   actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
+                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
                     ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
+                        // TODO: Implement actual logout logic
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged out')));
                       },
                       child: const Text('Logout'),
@@ -362,26 +340,29 @@ class _TailorScreenState extends State<TailorScreen> {
                 ),
               );
             },
-          )
+          ),
         ],
       ),
-      body: [
-        _buildWorksTab(),
-        _buildOrdersTab(),
-        _buildChatListTab(),
-      ][_selectedTab],
+      body: IndexedStack(
+        index: _selectedTab,
+        children: [
+          _buildWorksTab(),
+          _buildOrdersTab(),
+          _buildChatTab(),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedTab,
-        onTap: (i) => setState(() => _selectedTab = i),
+        onTap: (index) => setState(() => _selectedTab = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.design_services), label: 'Works'),
+          BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Works'),
           BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Orders'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chats'),
         ],
       ),
       floatingActionButton: _selectedTab == 0
           ? FloatingActionButton(
-        onPressed: _showAddWorkDialog,
+        onPressed: () => _showAddWorkDialog(),
         child: const Icon(Icons.add),
       )
           : null,
@@ -408,23 +389,22 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _controller = TextEditingController();
 
-  void _send() {
+  void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    final msg = Message(sender: 'Tailor', text: text);
-    widget.onSend(msg);
-
-    setState(() {
-      widget.messages.add(msg);
-      _controller.clear();
-    });
+    final message = Message(sender: 'Designer', text: text);
+    widget.onSend(message);
+    _controller.clear();
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Chat with ${widget.customer}')),
+      appBar: AppBar(
+        title: Text('Chat with ${widget.customer}'),
+      ),
       body: Column(
         children: [
           Expanded(
@@ -432,45 +412,39 @@ class _ChatPageState extends State<ChatPage> {
               itemCount: widget.messages.length,
               itemBuilder: (context, index) {
                 final msg = widget.messages[index];
-                final isTailor = msg.sender == 'Tailor';
-                return Container(
-                  alignment: isTailor ? Alignment.centerRight : Alignment.centerLeft,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                final isDesigner = msg.sender == 'Designer';
+                return Align(
+                  alignment: isDesigner ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: isTailor ? Colors.blueAccent : Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(12),
+                      color: isDesigner ? Colors.blue[200] : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      msg.text,
-                      style: TextStyle(color: isTailor ? Colors.white : Colors.black87),
-                    ),
+                    child: Text(msg.text),
                   ),
                 );
               },
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    decoration: const InputDecoration(
-                      labelText: 'Type your message...',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(hintText: 'Type a message'),
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.send),
-                  onPressed: _send,
-                ),
+                  onPressed: _sendMessage,
+                )
               ],
             ),
-          )
+          ),
         ],
       ),
     );
