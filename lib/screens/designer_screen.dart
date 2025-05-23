@@ -34,12 +34,14 @@ class DesignerOrder {
   final String address;
   final String event;
   final String status;
+  final Map<String, String> measurements;
 
   DesignerOrder({
     required this.client,
     required this.address,
     required this.event,
     required this.status,
+    required this.measurements,
   });
 }
 
@@ -81,12 +83,24 @@ class _DesignerScreenState extends State<DesignerScreen> {
       address: '101 Park Lane, City',
       event: 'Marriage',
       status: 'In Progress',
+      measurements: {
+        'Bust': '34 in',
+        'Waist': '28 in',
+        'Hips': '36 in',
+        'Height': '5\'6"',
+      },
     ),
     DesignerOrder(
       client: 'Aarav',
       address: '99 Residency Blvd, Town',
       event: 'Birthday',
       status: 'Completed',
+      measurements: {
+        'Chest': '38 in',
+        'Waist': '32 in',
+        'Sleeve Length': '24 in',
+        'Height': '5\'10"',
+      },
     ),
   ];
 
@@ -191,6 +205,24 @@ class _DesignerScreenState extends State<DesignerScreen> {
     );
   }
 
+  Widget _buildOrdersTab() {
+    return ListView.builder(
+      itemCount: orders.length,
+      itemBuilder: (context, index) {
+        final order = orders[index];
+        return ExpansionTile(
+          title: Text('${order.client} - ${order.status}'),
+          subtitle: Text('${order.event} • ${order.address}'),
+          children: order.measurements.entries.map((entry) {
+            return ListTile(
+              title: Text('${entry.key}: ${entry.value}'),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
   Widget _buildWorksTab() {
     return ListView.builder(
       itemCount: works.length,
@@ -248,19 +280,6 @@ class _DesignerScreenState extends State<DesignerScreen> {
     );
   }
 
-  Widget _buildOrdersTab() {
-    return ListView.builder(
-      itemCount: orders.length,
-      itemBuilder: (context, index) {
-        final order = orders[index];
-        return ExpansionTile(
-          title: Text('${order.client} - ${order.status}'),
-          subtitle: Text('${order.event} • ${order.address}'),
-        );
-      },
-    );
-  }
-
   Widget _buildChatTab() {
     return ListView(
       children: chatMap.keys.map((client) {
@@ -295,15 +314,15 @@ class _DesignerScreenState extends State<DesignerScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.black, width: 1), // black border
+                border: Border.all(color: Colors.black),
                 borderRadius: BorderRadius.circular(4),
-                color: Colors.white, // white background
+                color: Colors.white,
               ),
               child: DropdownButton<String>(
                 value: _specialization,
                 icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
                 dropdownColor: Colors.white,
-                style: const TextStyle(color: Colors.black), // black text style
+                style: const TextStyle(color: Colors.black),
                 onChanged: (String? newValue) {
                   setState(() {
                     _specialization = newValue!;
@@ -313,8 +332,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                     .map<DropdownMenuItem<String>>((String value) => DropdownMenuItem<String>(
                   value: value,
                   child: Text(value, style: const TextStyle(color: Colors.black)),
-                ))
-                    .toList(),
+                )).toList(),
               ),
             ),
           ),
@@ -331,7 +349,6 @@ class _DesignerScreenState extends State<DesignerScreen> {
                     ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        // TODO: Implement actual logout logic
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged out')));
                       },
                       child: const Text('Logout'),
