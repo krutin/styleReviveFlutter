@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'signup_screen.dart';
+import 'reseller_screen.dart'; // Import reseller dashboard
+import 'tailor_screen.dart'; // Import tailor dashboard
+// import 'designer_dashboard.dart'; // Import designer dashboard
+// import 'customer_dashboard.dart'; // Import customer dashboard
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,10 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = emailController.text.trim();
     final password = passwordController.text;
 
-    // Debugging: Print input values
-    print("Email: $email");
-    print("Password: $password");
-
     if (email.isEmpty || password.isEmpty) {
       _showMessage("Please fill in all fields.");
       return;
@@ -31,34 +31,43 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => isLoading = true);
 
     try {
-      // Debugging: Print request body before sending
-      final requestBody = jsonEncode({
-        'email': email,
-        'password': password,
-      });
-      print("Request Body: $requestBody");
-
       final response = await http.post(
-        Uri.parse('http://localhost:5000/api/auth/login'), // TODO: replace with your IP
+        Uri.parse('http://localhost:5000/api/auth/login'), // Replace with your backend URL
         headers: {'Content-Type': 'application/json'},
-        body: requestBody,
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
       );
 
-      // Debugging: Print response status and body
-      print("Response Status Code: ${response.statusCode}");
-      print("Response Body: ${response.body}");
-
       final result = jsonDecode(response.body);
-
       if (response.statusCode == 200) {
         _showMessage(result['message']);
-        // TODO: Handle successful login (e.g., save token, navigate to home screen)
+
+        // Redirect based on role
+        final role = result['user']['role']; // Assuming the backend returns the user's role
+        if (role == 'reseller') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => ResellerDashboard(token : result['token'])), // Pass the token to the dashboard
+          );
+        } else if (role == 'tailor') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => TailorScreen()), 
+          );
+        } else if (role == 'customer') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => ResellerDashboard(token : result['token'])), //temp
+          );
+        } else {
+          _showMessage("Unknown role. Please contact support.");
+        }
       } else {
         _showMessage(result['message'] ?? 'Login failed.');
       }
     } catch (e) {
-      // Debugging: Print error
-      print("Error: $e");
       _showMessage("Error connecting to server.");
     }
 
