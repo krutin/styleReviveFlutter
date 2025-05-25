@@ -6,11 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 class RoleDetailPage extends StatefulWidget {
   final String roleType;
   final String userId;
+  // Add this callback parameter
+  final Function(Map<String, dynamic>, String, String)? onOrder;
 
   const RoleDetailPage({
     Key? key, 
     required this.roleType,
     required this.userId,
+    this.onOrder,  // Optional callback for ordering
   }) : super(key: key);
 
   @override
@@ -173,141 +176,315 @@ class _RoleDetailPageState extends State<RoleDetailPage> {
     );
   }
 
-  Future<void> _placeOrder(Map<String, dynamic> post, int quantity, String notes) async {
-    Navigator.pop(context); // Close the dialog
-    
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+  Future<void> _placeOrder(
+  Map<String, dynamic> post, 
+  int quantity, 
+  String notes,
+  String address,
+) async {
+  Navigator.pop(context); // Close the dialog
+  
+  // Show loading indicator
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const Center(child: CircularProgressIndicator()),
+  );
 
-    try {
-      final token = await _getToken();
-      if (token == null) {
-        if (context.mounted) {
-          Navigator.pop(context); // Close loading dialog
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Authentication required')),
-          );
-        }
-        return;
-      }
-
-      // Safely extract values with proper null handling
-      final String productId = safeString(post['id']);
-      final String title = safeString(post['title'], defaultValue: 'No title');
-      final String? image = post['image']?.toString();
-      final String priceStr = safeString(post['price'], defaultValue: '0');
-      final double price = double.tryParse(priceStr) ?? 0;
-      final double totalPrice = price * quantity;
-
-      final orderData = {
-        'sellerId': widget.userId,
-        'productId': productId,
-        'productName': title,
-        'productImage': image,
-        'totalPrice': totalPrice.toString(),
-        'quantity': quantity,
-        'notes': notes,
-      };
-
-      final response = await http.post(
-        Uri.parse('$apiBaseUrl/orders'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode(orderData),
-      );
-
-      if (context.mounted) {
-        Navigator.pop(context); // Close loading dialog
-        
-        if (response.statusCode == 201 || response.statusCode == 200) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order placed successfully!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to place order: ${response.statusCode}')),
-          );
-        }
-      }
-    } catch (e) {
+  try {
+    final token = await _getToken();
+    if (token == null) {
       if (context.mounted) {
         Navigator.pop(context); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error placing order: ${e.toString()}')),
+          const SnackBar(content: Text('Authentication required')),
+        );
+      }
+      return;
+    }
+
+    // Safely extract values with proper null handling
+    final String productId = safeString(post['id']);
+    final String priceStr = safeString(post['price'], defaultValue: '0');
+    final double price = double.tryParse(priceStr) ?? 0;
+    final double totalPrice = price * quantity;
+
+    // IMPORTANT: Match exactly with your schema - remove unused fields
+    final Map<String, dynamic> orderData = {
+      'sellerId': widget.userId,
+      'productId': productId,
+      'quantity': quantity,
+      'totalPrice': totalPrice,
+      'shippingAddress': address,
+      // Note: customerId will be added by the server from the auth token
+      // Note: The fields below are not in your schema, so we've removed them
+      // 'productName': title, 
+      // 'productImage': image,
+      // 'notes': notes,
+    };
+
+    print('Sending order to: $apiBaseUrl/orders');
+    print('Order data: $orderData');
+
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl/orders'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode(orderData),
+    );
+
+    print('Response status: ${response.statusCode}');
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      print('Response body: ${response.body}');
+    }
+
+    if (context.mounted) {
+      Navigator.pop(context); // Close loading dialog
+      
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order placed successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to place order: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
+  } catch (e) {
+    print('Error placing order: $e');
+    if (context.mounted) {
+      Navigator.pop(context); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error placing order: ${e.toString()}')),
+      );
+    }
   }
+}
 
-  void _showOrderDialog(Map<String, dynamic> post) {
-    // Handle potential null values in the post map
-    final String title = safeString(post['title'], defaultValue: 'No title');
-    final String description = safeString(post['description'], defaultValue: 'No description');
-    final String price = safeString(post['price'], defaultValue: '0');
-    final String? image = post['image']?.toString();
-    
-    final TextEditingController quantityController = TextEditingController(text: '1');
-    final TextEditingController notesController = TextEditingController();
-    
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Order: $title'),
-        content: SingleChildScrollView(
+void _showOrderDialog(Map<String, dynamic> post) {
+  // Handle potential null values in the post map
+  final String title = safeString(post['title'], defaultValue: 'No title');
+  final String description = safeString(post['description'], defaultValue: 'No description');
+  final String priceStr = safeString(post['price'], defaultValue: '0');
+  final double price = double.tryParse(priceStr) ?? 0;
+  double totalPrice = price;
+  final String? image = post['image']?.toString();
+  
+  // Initialize controllers
+  final TextEditingController quantityController = TextEditingController(text: '1');
+  final TextEditingController addressController = TextEditingController();
+  final TextEditingController notesController = TextEditingController();
+  
+  // Track loading state
+  bool isPlacingOrder = false;
+
+  // Make sure dialog uses most of the screen but not too much
+  final screenHeight = MediaQuery.of(context).size.height;
+  final dialogHeight = screenHeight * 0.7; // Use 70% of screen height
+  
+  showDialog(
+    context: context,
+    builder: (_) => StatefulBuilder(
+      builder: (context, setStateDialog) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Container(
+          constraints: BoxConstraints(maxHeight: dialogHeight),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Handle image display based on type (base64 or URL)
-              if (image != null && image.isNotEmpty)
-                _buildProductImage(image),
-              const SizedBox(height: 12),
-              Text('Price: \$$price', style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: quantityController,
-                decoration: const InputDecoration(
-                  labelText: 'Quantity',
-                  border: OutlineInputBorder(),
+              // Dialog header with title and close button
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Order: $title',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: isPlacingOrder ? null : () => Navigator.pop(context),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ),
-                keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Special Instructions',
-                  border: OutlineInputBorder(),
+              
+              const Divider(height: 1),
+              
+              // Scrollable content area
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Product image (smaller height)
+                      if (image != null && image.isNotEmpty)
+                        Container(
+                          height: 120, // Smaller height
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: _buildProductImage(image),
+                        ),
+                        
+                      // Product price information
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Price: \$$priceStr',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Total: \$${totalPrice.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Quantity field - more compact
+                      TextField(
+                        controller: quantityController,
+                        decoration: const InputDecoration(
+                          labelText: 'Quantity',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          final quantity = int.tryParse(value) ?? 1;
+                          setStateDialog(() {
+                            totalPrice = price * quantity;
+                          });
+                        },
+                      ),
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Address field
+                      TextField(
+                        controller: addressController,
+                        decoration: const InputDecoration(
+                          labelText: 'Shipping Address *',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        maxLines: 2,
+                      ),
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Notes field
+                      TextField(
+                        controller: notesController,
+                        decoration: const InputDecoration(
+                          labelText: 'Special Instructions',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        maxLines: 2,
+                      ),
+                    ],
+                  ),
                 ),
-                maxLines: 3,
+              ),
+              
+              const Divider(height: 1),
+              
+              // Action buttons at the bottom
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: isPlacingOrder ? null : () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: isPlacingOrder
+                        ? null
+                        : () async {
+                            // Validate input
+                            if (addressController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please enter a shipping address'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                            
+                            // Start loading state
+                            setStateDialog(() {
+                              isPlacingOrder = true;
+                            });
+                            
+                            try {
+                              await _placeOrder(
+                                post,
+                                int.tryParse(quantityController.text) ?? 1,
+                                notesController.text,
+                                addressController.text.trim(), // Pass address to _placeOrder
+                              );
+                            } catch (e) {
+                              setStateDialog(() {
+                                isPlacingOrder = false;
+                              });
+                            }
+                          },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: violetDark,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      child: isPlacingOrder
+                        ? const SizedBox(
+                            height: 20, 
+                            width: 20, 
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Place Order'),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => _placeOrder(
-              post,
-              int.tryParse(quantityController.text) ?? 1,
-              notesController.text,
-            ),
-            style: ElevatedButton.styleFrom(backgroundColor: violetDark),
-            child: const Text('Place Order'),
-          ),
-        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   // Helper method to build product image based on type
   Widget _buildProductImage(String imageSource) {

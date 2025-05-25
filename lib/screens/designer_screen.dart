@@ -801,34 +801,44 @@ class _DesignerScreenState extends State<DesignerScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('Confirm Logout'),
-                  content: const Text('Are you sure you want to logout?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel')
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Logout'),
-                    ),
-                  ],
-                ),
-              );
-              
-              if (confirmed == true) {
-                // Clear auth token
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('auth_token');
-                
-                // Navigate back to login screen
-                if (context.mounted) {
-                  Navigator.of(context).pop();
+  icon: const Icon(Icons.logout),
+  onPressed: () async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirm Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel')
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      // Clear auth token
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('auth_token');
+      
+      // Navigate to landing page and remove all previous routes
+      if (context.mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context, 
+          '/landing', // Make sure this route name exists in your routes
+          (route) => false, // Remove all previous routes
+        );
+        
+        // Alternative method if named routes aren't set up:
+        // Navigator.of(context).pushAndRemoveUntil(
+        //   MaterialPageRoute(builder: (context) => const LandingPage()),
+        //   (route) => false,
+        // );
                 }
               }
             },
